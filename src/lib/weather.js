@@ -1,5 +1,10 @@
 const API_URL = 'https://api.open-meteo.com/v1/forecast';
 
+/**
+ * Sleep for a given number of milliseconds.
+ * @param {number} ms - Milliseconds to sleep.
+ * @returns {Promise} - Promise that resolves after the given time.
+ */
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -17,8 +22,6 @@ async function sleep(ms) {
  * @returns {Array<Forecast>}
  */
 function parseResponse(data) {
-  console.log(data);
-
   const hourly = data.hourly;
   const { time = [], precipitation = [], temperature_2m = [] } = hourly;
 
@@ -45,6 +48,7 @@ function parseResponse(data) {
 
   return allForecasts;
 }
+
 /**
  * Sækir veðurspá fyrir gefnar hnit.
  * @param {number} latitude - Breiddargráða staðsetningar.
@@ -52,7 +56,9 @@ function parseResponse(data) {
  * @returns {Promise<Array>} - Skilar loforði sem leysist upp í veðurspá.
  */
 export async function weatherSearch(latitude, longitude) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,apparent_temperature,precipitation&timezone=GMT&forecast_days=1`;
+  await sleep(1000); // Simulate network delay
+
+  const url = `${API_URL}?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,precipitation&timezone=GMT&forecast_days=1`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -62,12 +68,7 @@ export async function weatherSearch(latitude, longitude) {
   const data = await response.json();
 
   // Breyta gögnunum í það form sem við viljum
-  const results = data.hourly.time.map((time, index) => ({
-    time,
-    temperature: data.hourly.temperature_2m[index],
-    apparentTemperature: data.hourly.apparent_temperature[index],
-    precipitation: data.hourly.precipitation[index],
-  }));
+  const results = parseResponse(data);
 
   return results;
 }
