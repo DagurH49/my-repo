@@ -1,8 +1,3 @@
-/**
- * Gefið efni fyrir verkefni 9, ekki er krafa að nota nákvæmlega þetta en nota
- * verður gefnar staðsetningar.
- */
-
 import { el, empty } from './lib/elements.js';
 import { weatherSearch } from './lib/weather.js';
 
@@ -15,7 +10,7 @@ import { weatherSearch } from './lib/weather.js';
 
 /**
  * Allar staðsetning sem hægt er að fá veður fyrir.
- * @type Array<SearchLocation>
+ * @type {Array<SearchLocation>}
  */
 const locations = [
   {
@@ -40,7 +35,7 @@ const locations = [
   },
   {
     title: 'Sydney',
-    lat: 33.8688,
+    lat: -33.8688,
     lng: 151.2093,
   },
 ];
@@ -73,18 +68,20 @@ function renderResults(location, results) {
     {},
     el('th', {}, 'Tími'),
     el('th', {}, 'Hiti'),
+    el('th', {}, 'Ákveðinn hiti'),
     el('th', {}, 'Úrkoma'),
   );
-  console.log(results);
-  const body = el(
+
+  const body = results.map(result => el(
     'tr',
     {},
-    el('td', {}, 'Tími'),
-    el('td', {}, 'Hiti'),
-    el('td', {}, 'Úrkoma'),
-  );
+    el('td', {}, result.time.split('T')[1].slice(0, 5)), // Birta aðeins klukkustund og mínútur
+    el('td', {}, result.temperature.toString()),
+    el('td', {}, result.apparentTemperature.toString()),
+    el('td', {}, result.precipitation.toString()),
+  ));
 
-  const resultsTable = el('table', { class: 'forecast' }, header, body);
+  const resultsTable = el('table', { class: 'forecast' }, header, ...body);
 
   renderIntoResultsContent(
     el(
@@ -130,9 +127,6 @@ async function onSearch(location) {
   }
 
   renderResults(location, results ?? []);
-
-  // TODO útfæra
-  // Hér ætti að birta og taka tillit til mismunandi staða meðan leitað er.
 }
 
 /**
@@ -140,7 +134,21 @@ async function onSearch(location) {
  * Biður notanda um leyfi gegnum vafra.
  */
 async function onSearchMyLocation() {
-  // TODO útfæra
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      renderLoading();
+      try {
+        const results = await weatherSearch(latitude, longitude);
+        renderResults({ title: 'Núverandi staðsetning', lat: latitude, lng: longitude }, results);
+      } catch (error) {
+        renderError(error);
+      }
+    }, showError);
+  } else {
+    alert('Vafrinn þinn styður ekki staðsetningu.');
+  }
 }
 
 /**
@@ -150,7 +158,6 @@ async function onSearchMyLocation() {
  * @returns {HTMLElement}
  */
 function renderLocationButton(locationTitle, onSearch) {
-  // Notum `el` fallið til að búa til element og spara okkur nokkur skref.
   const locationElement = el(
     'li',
     { class: 'locations__location' },
@@ -160,15 +167,6 @@ function renderLocationButton(locationTitle, onSearch) {
       locationTitle,
     ),
   );
-
-  /* Til smanburðar við el fallið ef við myndum nota DOM aðgerðir
-  const locationElement = document.createElement('li');
-  locationElement.classList.add('locations__location');
-  const locationButton = document.createElement('button');
-  locationButton.appendChild(document.createTextNode(locationTitle));
-  locationButton.addEventListener('click', onSearch);
-  locationElement.appendChild(locationButton);
-  */
 
   return locationElement;
 }
@@ -181,45 +179,42 @@ function renderLocationButton(locationTitle, onSearch) {
  * @param {() => void} onSearchMyLocation
  */
 function render(container, locations, onSearch, onSearchMyLocation) {
-  // Búum til <main> og setjum `weather` class
-  const parentElement = document.createElement('main');
-  parentElement.classList.add('weather');
-
-  // Búum til <header> með beinum DOM aðgerðum
-  const headerElement = document.createElement('header');
-  const heading = document.createElement('h1');
-  heading.appendChild(document.createTextNode('<fyrirsögn>'));
-  headerElement.appendChild(heading);
-  parentElement.appendChild(headerElement);
-
-  // TODO útfæra inngangstexta
-  // Búa til <div class="loctions">
-  const locationsElement = document.createElement('div');
-  locationsElement.classList.add('locations');
-
-  // Búa til <ul class="locations__list">
-  const locationsListElement = document.createElement('ul');
-  locationsListElement.classList.add('locations__list');
-
-  // <div class="loctions"><ul class="locations__list"></ul></div>
-  locationsElement.appendChild(locationsListElement);
-
-  // <div class="loctions"><ul class="locations__list"><li><li><li></ul></div>
-  for (const location of locations) {
-    const liButtonElement = renderLocationButton(location.title, () => {
-      console.log('Halló!!', location);
-      onSearch(location);
-    });
-    locationsListElement.appendChild(liButtonElement);
-  }
-
-  parentElement.appendChild(locationsElement);
-
-  const outputElement = document.createElement('div');
-  outputElement.classList.add('output');
-  parentElement.appendChild(outputElement);
+  const parentElement = el('main', { class: 'weather' },
+    el('header', {},
+      el('h1', {}, 'Veðurspá')
+    ),
+    el('p', {}, 'Veldu stað til að sjá hita- og úrkomuspá.'),
+    el('div', { class: 'locations' },
+      el('ul', { class: 'locations__list' },
+        renderLocationButton('Núverandi staðsetning', onSearchMyLocation),
+        ...locations.map(location => renderLocationButton(location.title, () => onSearch(location)))
+      )
+    ),
+    el('div', { class: 'output' })
+  );
 
   container.appendChild(parentElement);
+}
+
+/**
+ * Sýnir villu ef staðsetning er ekki tiltæk.
+ * @param {PositionError} error
+ */
+function showError(error) {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      alert('Notandi hafnaði beiðni um staðsetningu.');
+      break;
+    case error.POSITION_UNAVAILABLE:
+      alert('Staðsetningarupplýsingar eru ekki tiltækar.');
+      break;
+    case error.TIMEOUT:
+      alert('Beiðni um staðsetningu rann út.');
+      break;
+    case error.UNKNOWN_ERROR:
+      alert('Óþekkt villa kom upp.');
+      break;
+  }
 }
 
 // Þetta fall býr til grunnviðmót og setur það í `document.body`

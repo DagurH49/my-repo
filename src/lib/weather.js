@@ -45,36 +45,29 @@ function parseResponse(data) {
 
   return allForecasts;
 }
-
 /**
- * Framkvæmir leit að veðurspám fyrir gefna staðsetningu.
- * @param {number} lat
- * @param {number} lng
- * @returns {Promise<Array<Forecast>>} Fylki af spám fyrir staðsetningu.
+ * Sækir veðurspá fyrir gefnar hnit.
+ * @param {number} latitude - Breiddargráða staðsetningar.
+ * @param {number} longitude - Lengdargráða staðsetningar.
+ * @returns {Promise<Array>} - Skilar loforði sem leysist upp í veðurspá.
  */
-export async function weatherSearch(lat, lng) {
-  await sleep(1000);
-  // Querystring sem við viljum senda með leit
-  // latitude={lat}&longitude={lng}}&hourly=temperature_2m,precipitation&timezone=GMT&forecast_days=1
+export async function weatherSearch(latitude, longitude) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,apparent_temperature,precipitation&timezone=GMT&forecast_days=1`;
 
-  // TODO útfæra
-  // Hér ætti að nota URL og URLSearchParams
-  const url = new URL(API_URL);
-  const querystring = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lng.toString(),
-    hourly: 'temperature_2m,precipitation',
-    forecast_days: '1',
-  });
-  url.search = querystring.toString();
-
-  const response = await fetch(url.href);
-
-  if (response.ok) {
-    const data = await response.json();
-
-    return parseResponse(data);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Gat ekki sótt veðurspá');
   }
 
-  return [];
+  const data = await response.json();
+
+  // Breyta gögnunum í það form sem við viljum
+  const results = data.hourly.time.map((time, index) => ({
+    time,
+    temperature: data.hourly.temperature_2m[index],
+    apparentTemperature: data.hourly.apparent_temperature[index],
+    precipitation: data.hourly.precipitation[index],
+  }));
+
+  return results;
 }
