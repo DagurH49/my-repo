@@ -63,8 +63,17 @@ function parseResponse(data) {
 export async function weatherSearch(latitude, longitude) {
   await sleep(1000); // Simulate network delay
 
-  const url = `${API_URL}?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,apparent_temperature,precipitation&timezone=GMT&forecast_days=1`;
-  const response = await fetch(url);
+  const url = new URL(API_URL);
+  const querystring = new URLSearchParams({
+    latitude: latitude.toString(),
+    longitude: longitude.toString(),
+    hourly: 'temperature_2m,apparent_temperature,precipitation',
+    timezone: 'GMT',
+    forecast_days: '1',
+  });
+  url.search = querystring.toString();
+
+  const response = await fetch(url.href);
   if (!response.ok) {
     throw new Error('Gat ekki sótt veðurspá');
   }
