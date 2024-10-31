@@ -1,0 +1,8 @@
+[build]
+  publish = "build" # Mappan þar sem skrárnar eru afritaðar
+  command = "npm run build"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Type = "application/javascript"
